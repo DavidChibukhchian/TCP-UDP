@@ -8,6 +8,8 @@
 
 int main(int argc, char *argv[])
 {
+	int err = 0;
+
 	if (!((argc == 3) || (argc == 4)))
 	{
 		printf("ERROR: Wrong number of arguments.\n");
@@ -17,6 +19,7 @@ int main(int argc, char *argv[])
 		printf("\tTCP_client <address>\n");
 		printf("\tUDP_server\n");
 		printf("\tUDP_client <address>\n");
+
 		return -1;
 	}
 
@@ -35,19 +38,19 @@ int main(int argc, char *argv[])
 	
 	if (strcmp(argv[1],      "TCP_server") == 0)
 	{
-		TCP_server(port);
+		err = TCP_server(port);
 	}
 	else if (strcmp(argv[1], "TCP_client") == 0)
 	{
-		TCP_client(address, port);
+		err = TCP_client(address, port);
 	}
 	else if (strcmp(argv[1], "UDP_server") == 0)
 	{
-		UDP_server(port);
+		err = UDP_server(port);
 	}
 	else if (strcmp(argv[1], "UDP_client") == 0)
 	{
-		UDP_client(address, port);
+		err = UDP_client(address, port);
 	}
 	else
 	{
@@ -58,8 +61,11 @@ int main(int argc, char *argv[])
 		printf("\tTCP_client <address>\n");
 		printf("\tUDP_server\n");
 		printf("\tUDP_client <address>\n");
-		return -1;
+		
+		return -2;
 	}
+
+	if (err) return err;
 
 	return 0;
 }
