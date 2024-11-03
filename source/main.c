@@ -19,7 +19,6 @@ int main(int argc, char *argv[])
 		printf("\tTCP_client <address>\n");
 		printf("\tUDP_server\n");
 		printf("\tUDP_client <address>\n");
-
 		return -1;
 	}
 
@@ -61,7 +60,6 @@ int main(int argc, char *argv[])
 		printf("\tTCP_client <address>\n");
 		printf("\tUDP_server\n");
 		printf("\tUDP_client <address>\n");
-		
 		return -2;
 	}
 
