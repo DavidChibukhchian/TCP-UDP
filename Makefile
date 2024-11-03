@@ -1,4 +1,4 @@
-TARGET = network
+TARGET = build/network
 
 CC = gcc
 CFLAGS = -Wall -Iinclude
