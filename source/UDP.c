@@ -14,188 +14,128 @@
 
 int UDP_server(int port)
 {
-	int server_fd;
-	struct sockaddr_in server_addr, client_addr;
+	struct sockaddr_in server_addr = {};
+	struct sockaddr_in client_addr = {};
 	socklen_t client_addr_len = sizeof(client_addr);
-	char message[MAX_MESSAGE_SIZE];
-	fd_set read_fds;  // Множество дескрипторов для select()
-	int max_fd;       // Максимальный дескриптор
+	char message[MAX_MESSAGE_SIZE] = {'\0'};
 
-    // Создание UDP сокета
-    server_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (server_fd < 0) {
-        perror("Не удалось создать сокет");
-        exit(EXIT_FAILURE);
-    }
+	int server_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-    // Настройка адреса сервера
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(port);
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_port = htons(port);
 
-    // Привязка сокета к адресу и порту
-    if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Ошибка привязки");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
+	bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+	printf("Server was successfully launched on port %d.\n\n", port);
 
-    printf("UDP-сервер запущен и ожидает сообщения на порту %d...\n", port);
+	while (1)
+	{
+		int max_fd = server_fd;
+		if (STDIN_FILENO > max_fd)
+		{
+			max_fd = STDIN_FILENO;
+		}
 
-    while (1) {
-        // Настройка множества дескрипторов для `select`
-        FD_ZERO(&read_fds);
-        FD_SET(STDIN_FILENO, &read_fds);  // Добавляем стандартный ввод
-        FD_SET(server_fd, &read_fds);     // Добавляем сокет сервера
+		fd_set read_fds = {};
+		FD_ZERO(&read_fds);
+		FD_SET(server_fd,    &read_fds);
+		FD_SET(STDIN_FILENO, &read_fds);
 
-        // Устанавливаем максимальный дескриптор для `select`
-        max_fd = (STDIN_FILENO > server_fd) ? STDIN_FILENO : server_fd;
+		select(max_fd + 1, &read_fds, NULL, NULL, NULL);
 
-        // Ожидание событий на любом из дескрипторов
-        int activity = select(max_fd + 1, &read_fds, NULL, NULL, NULL);
-        if (activity < 0) {
-            perror("Ошибка select");
-            break;
-        }
+		if (FD_ISSET(server_fd, &read_fds))
+		{
+			int bytes_received = recvfrom(server_fd, message, MAX_MESSAGE_SIZE, 0, (struct sockaddr *)&client_addr, &client_addr_len);
 
-        // Проверка, есть ли данные от клиента
-        if (FD_ISSET(server_fd, &read_fds)) {
-            int bytes_received = recvfrom(server_fd, message, MAX_MESSAGE_SIZE, 0,
-                                          (struct sockaddr *)&client_addr, &client_addr_len);
-            if (bytes_received < 0) {
-                perror("Ошибка при получении сообщения");
-                continue;
-            }
+			message[bytes_received] = '\0';
+			printf("Client: %s\n", message);
 
-            message[bytes_received] = '\0';
-            printf("Сообщение от клиента: %s\n", message);
+			if (strcmp(message, "exit") == 0)
+			{
+				printf("\nСlient successfully disconnected.\n\n");
+				continue;
+			}
 
-            // Проверка на команду завершения "exit" от клиента
-            if (strcmp(message, "exit") == 0) {
-                printf("Клиент завершил сеанс.\n");
-                continue;
-            }
+			sendto(server_fd, message, bytes_received, 0, (struct sockaddr *)&client_addr, client_addr_len);
+		}
 
-            // Отправка ответа клиенту
-            printf("Отправка ответа клиенту...\n");
-            if (sendto(server_fd, message, bytes_received, 0,
-                       (struct sockaddr *)&client_addr, client_addr_len) < 0) {
-                perror("Ошибка отправки сообщения");
-            }
-        }
+		if (FD_ISSET(STDIN_FILENO, &read_fds))
+		{
+			fgets(message, MAX_MESSAGE_SIZE, stdin);
+			message[strcspn(message, "\n")] = '\0';
 
-        // Проверка, есть ли команда от сервера
-        if (FD_ISSET(STDIN_FILENO, &read_fds)) {
-            fgets(message, MAX_MESSAGE_SIZE, stdin);
-            message[strcspn(message, "\n")] = '\0';
+			if (strcmp(message, "server_exit") == 0)
+			{
+				printf("Server was successfully shut down.\n");
+				close(server_fd);
+				return 0;
+			}
 
-            // Проверка на команду завершения сервера
-            if (strcmp(message, "server_exit") == 0) {
-                printf("Сервер завершает работу.\n");
-                break;  // Выход из основного цикла для завершения работы сервера
-            }
-
-            // Отправка сообщения последнему клиенту, если он известен
-            if (client_addr_len > 0) {
-                if (sendto(server_fd, message, strlen(message), 0,
-                           (struct sockaddr *)&client_addr, client_addr_len) < 0) {
-                    perror("Ошибка отправки сообщения клиенту");
-                }
-            } else {
-                printf("Нет подключённых клиентов для отправки сообщения.\n");
-            }
-        }
-    }
-
-    // Закрытие сервера
-    close(server_fd);
-    printf("Сервер завершил работу.\n");
-
-	return 0;
+			sendto(server_fd, message, strlen(message), 0, (struct sockaddr *)&client_addr, client_addr_len);
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
 
 int UDP_client(const char* address, int port)
 {
-    int sock_fd;
-    struct sockaddr_in server_addr;
-    socklen_t server_addr_len = sizeof(server_addr);
-    char message[MAX_MESSAGE_SIZE];
-    fd_set read_fds;
-    int max_fd;
+	struct sockaddr_in server_addr = {};
+	socklen_t server_addr_len = sizeof(server_addr);
+	char message[MAX_MESSAGE_SIZE] = {'\0'};
 
-    // Создание UDP сокета
-    sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock_fd < 0) {
-        perror("Не удалось создать сокет");
-        exit(EXIT_FAILURE);
-    }
+	int client_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-    // Настройка адреса сервера
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    if (inet_pton(AF_INET, address, &server_addr.sin_addr) <= 0) {
-        perror("Неверный адрес или ошибка преобразования");
-        close(sock_fd);
-        exit(EXIT_FAILURE);
-    }
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(port);
+	if (inet_pton(AF_INET, address, &server_addr.sin_addr) <= 0)
+	{
+		perror("ERROR: Invalid address.\n");
+		close(client_fd);
+		return -1;
+	}
 
-    while (1) {
-        // Настройка множества дескрипторов для `select`
-        FD_ZERO(&read_fds);
-        FD_SET(STDIN_FILENO, &read_fds);  // Ввод пользователя
-        FD_SET(sock_fd, &read_fds);       // Сокет для данных от сервера
+	printf("You have been successfully connected to the server.\n\n");
 
-        // Устанавливаем максимальный дескриптор для `select`
-        max_fd = (STDIN_FILENO > sock_fd) ? STDIN_FILENO : sock_fd;
+	while (1)
+	{
+		int max_fd = client_fd;
+		if (STDIN_FILENO > max_fd)
+		{
+			max_fd = STDIN_FILENO;
+		}
 
-        // Ожидание события на любом из дескрипторов
-        int activity = select(max_fd + 1, &read_fds, NULL, NULL, NULL);
-        if (activity < 0) {
-            perror("Ошибка select");
-            break;
-        }
+		fd_set read_fds = {};
+		FD_ZERO(&read_fds);
+		FD_SET(client_fd,    &read_fds);
+		FD_SET(STDIN_FILENO, &read_fds);
 
-        // Проверка, есть ли данные от сервера
-        if (FD_ISSET(sock_fd, &read_fds)) {
-            int bytes_received = recvfrom(sock_fd, message, MAX_MESSAGE_SIZE, 0,
-                                          (struct sockaddr *)&server_addr, &server_addr_len);
-            if (bytes_received < 0) {
-                perror("Ошибка при получении ответа от сервера");
-            } else {
-                message[bytes_received] = '\0';
-                printf("Ответ от сервера: %s\n", message);
-            }
-        }
+		select(max_fd + 1, &read_fds, NULL, NULL, NULL);
 
-        // Проверка, есть ли ввод с клавиатуры
-        if (FD_ISSET(STDIN_FILENO, &read_fds)) {
-            printf("Введите сообщение для отправки (или 'exit' для завершения): ");
-            fgets(message, MAX_MESSAGE_SIZE, stdin);
-            message[strcspn(message, "\n")] = '\0';
+		if (FD_ISSET(client_fd, &read_fds))
+		{
+			int bytes_received = recvfrom(client_fd, message, MAX_MESSAGE_SIZE, 0, (struct sockaddr *)&server_addr, &server_addr_len);
+			message[bytes_received] = '\0';
+			printf("Server: %s\n", message);
+		}
 
-            // Проверка на команду завершения клиента
-            if (strcmp(message, "exit") == 0) {
-                printf("Клиент завершает сеанс.\n");
-                break;
-            }
+		if (FD_ISSET(STDIN_FILENO, &read_fds))
+		{
+			fgets(message, MAX_MESSAGE_SIZE, stdin);
+			message[strcspn(message, "\n")] = '\0';
 
-            // Отправка сообщения серверу
-            if (sendto(sock_fd, message, strlen(message), 0,
-                       (struct sockaddr *)&server_addr, server_addr_len) < 0) {
-                perror("Ошибка отправки сообщения");
-            }
-        }
-    }
+			if (strcmp(message, "exit") == 0) {
+				printf("You have been successfully disconnected from the server.\n");
+				close(client_fd);
+				return 0;
+				break;
+			}
 
-    // Закрытие клиента
-    close(sock_fd);
-    printf("Клиент завершил работу.\n");
-
-	return 0;
+			sendto(client_fd, message, strlen(message), 0, (struct sockaddr *)&server_addr, server_addr_len);
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------------------------------------------------

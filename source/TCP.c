@@ -80,7 +80,6 @@ int TCP_server(int port)
 					printf("Server was successfully shut down.\n");
 					close(client_fd);
 					close(server_fd);
-
 					return 0;
 				}
 
@@ -106,17 +105,18 @@ int TCP_client(const char* address, int port)
 
 	if (inet_pton(AF_INET, address, &server_addr.sin_addr) <= 0)
 	{
-		printf("ERROR: Invalid address\n");
+		printf("ERROR: Invalid address.\n");
 		close(client_fd);
 		return -1;
 	}
 
 	if (connect(client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
 	{
-		printf("ERROR: Connection error\n");
+		printf("ERROR: Connection error.\n");
 		close(client_fd);
 		return -2;
 	}
+	
 	printf("You have been successfully connected to the server.\n\n");
 
 	while (1)
