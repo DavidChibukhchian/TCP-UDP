@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 		printf("ERROR: Wrong number of arguments. Run %s [TCP_server|TCP_client|UDP_server|UDP_client]\n", argv[0]);
 		return -1;
 	}
-
+	/*
 	if (strcmp(argv[1],      "TCP_server") == 0)
 	{
 		TCP_server();
@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
 		printf("ERROR: Wrong mode. Run %s [TCP_server|TCP_client|UDP_server|UDP_client]\n", argv[0]);
 		return -2;
 	}
+	*/
 
 	return 0;
 }
